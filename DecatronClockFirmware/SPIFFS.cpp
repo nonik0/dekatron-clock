@@ -44,12 +44,12 @@ boolean SPIFFS_CLOCK::getConfigFromSpiffs(spiffs_config_t* spiffs_config) {
         std::unique_ptr<char[]> buf(new char[size]);
 
         configFile.readBytes(buf.get(), size);
-        DynamicJsonBuffer jsonBuffer;
-        JsonObject& json = jsonBuffer.parseObject(buf.get());
-        json.printTo(Serial);
+        JsonDocument json;
+        DeserializationError error = deserializeJson(json, buf.get());
+        serializeJson(json, Serial);
         debugMsg("\n");
-
-        if (json.success()) {
+        
+        if (!error) {
           debugMsg("parsed json");
 
           spiffs_config->ntpPool = json["ntp_pool"].as<String>();
@@ -124,8 +124,7 @@ void SPIFFS_CLOCK::saveConfigToSpiffs(spiffs_config_t* spiffs_config) {
     debugMsg("mounted file system");
     debugMsg("saving config");
 
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject& json = jsonBuffer.createObject();
+    JsonDocument json;
     json["ntp_pool"] = spiffs_config->ntpPool;
     json["ntp_update_interval"] = spiffs_config->ntpUpdateInterval;
     json["time_zone_string"] = spiffs_config->tzs;
@@ -150,10 +149,10 @@ void SPIFFS_CLOCK::saveConfigToSpiffs(spiffs_config_t* spiffs_config) {
       return;
     }
 
-    json.printTo(Serial);
+    serializeJson(json, Serial);
     debugMsg("\n");
 
-    json.printTo(configFile);
+    serializeJson(json, configFile);
     configFile.close();
     debugMsg("Saved config");
     //end save
@@ -181,18 +180,20 @@ boolean SPIFFS_CLOCK::getStatsFromSpiffs(spiffs_stats_t* spiffs_stats) {
         std::unique_ptr<char[]> buf(new char[size]);
 
         statsFile.readBytes(buf.get(), size);
-        DynamicJsonBuffer jsonBuffer;
-        JsonObject& json = jsonBuffer.parseObject(buf.get());
-        json.printTo(Serial);
+        JsonDocument json;
+        DeserializationError error = deserializeJson(json, buf.get());
+        serializeJson(json, Serial);
         debugMsg("\n");
 
-        if (json.success()) {
+        if (!error) {
           debugMsg("parsed stats json");
 
-          spiffs_stats->uptimeMins = json.get<unsigned long>("uptime");
+          //spiffs_stats->uptimeMins = json.get<unsigned long>("uptime");
+          spiffs_stats->uptimeMins = json["uptime"];
           debugMsg("Loaded uptime: " + String(spiffs_stats->uptimeMins));
 
-          spiffs_stats->tubeOnTimeMins = json.get<unsigned long>("tubeontime");
+          //spiffs_stats->tubeOnTimeMins = json.get<unsigned long>("tubeontime");
+          spiffs_stats->tubeOnTimeMins = json["tubeontime"];
           debugMsg("Loaded tubeontime: " + String(spiffs_stats->tubeOnTimeMins));
 
           loaded = true;
@@ -219,10 +220,9 @@ void SPIFFS_CLOCK::saveStatsToSpiffs(spiffs_stats_t* spiffs_stats) {
     debugMsg("mounted file system");
     debugMsg("saving stats");
 
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject& json = jsonBuffer.createObject();
-    json.set("uptime", spiffs_stats->uptimeMins);
-    json.set("tubeontime", spiffs_stats->tubeOnTimeMins);
+    JsonDocument json;
+    json["uptime"] = spiffs_stats->uptimeMins;
+    json["tubeontime"] = spiffs_stats->tubeOnTimeMins;
 
     File statsFile = SPIFFS.open("/stats.json", "w");
     if (!statsFile) {
@@ -231,10 +231,11 @@ void SPIFFS_CLOCK::saveStatsToSpiffs(spiffs_stats_t* spiffs_stats) {
       return;
     }
 
-    json.printTo(Serial);
+    serializeJson(json, Serial);
+
     debugMsg("\n");
 
-    json.printTo(statsFile);
+    serializeJson(json, statsFile);
     statsFile.close();
     debugMsg("Saved stats");
     //end save

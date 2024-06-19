@@ -61,7 +61,7 @@ boolean onceHadAnRTC = false;
 unsigned long nowMillis = 0;
 unsigned long lastCheckMillis = 0;
 unsigned long lastSecMillis = nowMillis;
-unsigned long lastSecond = second();  
+unsigned long lastSecond = second();
 boolean secondsChanged = false;
 boolean triggeredThisSec = false;
 long restartAtMillis = 0;
@@ -323,7 +323,7 @@ void setup() {
   spiffs.getStatsFromSpiffs(&current_stats);
 
   muxCount = INT_MUX_COUNTS_OFF;
-  
+
   timer1_attachInterrupt(displayUpdate);
 }
 
@@ -454,6 +454,9 @@ void performOncePerSecondProcessing() {
     blankSuppressStep = 0;
   }
 
+  // Reset PIR debounce
+  pirConsecutiveCounts = 0;
+
   if (ntpAsync.getNextUpdate(nowMillis) < 0) {
     ntpAsync.getTimeFromNTP();
   }
@@ -461,7 +464,7 @@ void performOncePerSecondProcessing() {
   // get hour dot, from hours (0-23) mod 12, plus minutes, so we end
   // up with a value in the range of 0 (00:00) to 719 (11:59)
   int adjustedHour = (hour() % 12) * 60 + minute();
-  
+
   float hourFloat = adjustedHour * 30.0 / 720;
   displayHours = (byte) hourFloat;
   displayMinsPrep = minute()/2;
@@ -587,6 +590,7 @@ String getRTCTime(boolean setInternalTime) {
 
     return returnValue;
   }
+  return "";
 }
 
 // ************************************************************
@@ -725,7 +729,7 @@ void setServerPageHandlers() {
   });
 
   server.on("/restart", silentRestartPageHandler);
-  
+
   server.on("/local.css",   localCSSHandler);
 
   server.onNotFound(handleNotFound);
@@ -753,7 +757,7 @@ void rootPageHandler() {
         response_message += "<div class=\"alert alert-warning fade in\"><strong>Restart scheduled!</strong> Clock will now restart to apply the changes</div></div>";
       }
   }
-  
+
   // Status table
   response_message += getTableHead2Col("Current Status", "Name", "Value");
 
@@ -899,7 +903,7 @@ void timeServerPageHandler() {
   debugMsg("Time page in");
 
   boolean changed = false;
-  
+
   changed |= checkServerArgString("ntppool", "NTP Pool", current_config.ntpPool);
   changed |= checkServerArgInt("ntpupdate", "NTP update interval", current_config.ntpUpdateInterval);
   changed |= checkServerArgString("tzs", "Time Zone String", current_config.tzs);
@@ -924,7 +928,7 @@ void timeServerPageHandler() {
   response_message += "<br/><hr/>";
   response_message += "For a list of commonly used values Time Zone String values, go to ";
   response_message += "<a href=\"https://www.nixieclock.biz/help/TZ-Variable.html\" target=\"_blank\">Time Zone Reference</a>";
-  
+
   response_message += "<br/><hr/>";
   response_message += "The NTP poll time should <i>not</i> be set to a multiple of 60 seconds. That will help spread ";
   response_message += "out the load on the NTP servers. 7261 seconds is good, 7200 is not. If using an ntp.org pool ";
@@ -1006,7 +1010,7 @@ void clockConfigPageHandler() {
 
   // LDR threshold
   response_message += getNumberInput("Display Rotation:", "displayRotate", DISPLAY_ROTATE_MIN, DISPLAY_ROTATE_MAX, current_config.displayRotate, false);
-  
+
   // Spin Up Speed
   response_message += getDropDownHeader("Spin Up Speed:", "spinUpSpeed", false, false);
   response_message += getDropDownOption("0", "Slow spin up", (current_config.spinUpSpeed == SPIN_UP_SLOW));
@@ -1131,7 +1135,7 @@ void resetWiFiPageHandler() {
 
   server.sendHeader("Location", "/", true);
   server.send(302, "text/plain", "");
-  
+
   debugManager.debugMsg("Reset WiFi page out");
 
   // schedule a restart
@@ -1146,12 +1150,12 @@ void resetAllPageHandler() {
   debugManager.debugMsg("Reset All page in");
 
   factoryReset();
-  
+
   server.sendHeader("Location", "/", true);
   server.send(302, "text/plain", "");
 
   debugManager.debugMsg("Reset All page out");
-  
+
   // schedule a restart
   restartAtMillis = 2000;
   restartResetWifi = true;
@@ -1164,12 +1168,12 @@ void resetOptionsPageHandler() {
   debugManager.debugMsg("Reset Options page in");
 
   factoryReset();
-  
+
   server.sendHeader("Location", "/", true);
   server.send(302, "text/plain", "");
 
   debugManager.debugMsg("Reset Options page out");
-  
+
   // schedule a restart
   restartAtMillis = 2000;
 }
@@ -1255,6 +1259,10 @@ void localCSSHandler()
 // consecutive counts before counting the PIR as "detected"
 // ************************************************************
 boolean checkPIR(unsigned long nowMillis) {
+  // debugManager.debugMsg("pirConsecutiveCounts: " + String(pirConsecutiveCounts));
+  // debugManager.debugMsg("lastImpressionsPerSec/2: " + String(lastImpressionsPerSec/2));
+  // debugManager.debugMsg("pirInstalled: " + String(pirInstalled));
+  // debugManager.debugMsg("pirLastSeen: " + String(pirLastSeen));
   if (pirConsecutiveCounts > (lastImpressionsPerSec / 2)) {
     pirLastSeen = nowMillis;
     pirStatus = true;
@@ -1306,6 +1314,8 @@ boolean checkBlanking() {
     case DAY_BLANKING_ALWAYS:
       return true;
   }
+
+  return false;
 }
 
 // ************************************************************

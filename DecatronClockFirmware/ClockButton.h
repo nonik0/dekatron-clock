@@ -7,7 +7,7 @@
 #define CLOCK_BUTTON_ACTIVE_HI false
 
 // ************************** Pin Allocations *************************
-#define inputPin1   0     // D3
+//#define inputPin1   0     // D3
 
 class ClockButton
 {
